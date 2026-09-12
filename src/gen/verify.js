@@ -8,10 +8,18 @@
    V4  hint 唔准包含答案字符串（洩漏掃描）
    V5  MC 選項四值互不相等、correctIndex 指中答案；打字題 options 空、index -1
    V6  每個 errorTrap 由已知錯誤操作推出（白名單重算，唔准手寫）
+
+   V7  answerKind === 'choice'（非數字答案）：
+       - options 係 [{id,label}]，id 互不相等、至少 2 個
+       - correctIndex 指中嗰個 option 嘅 id === q.answer
+       - 正解 id 必須由 operands／結構程式重推（derive.js 白名單 angle）
+       - 數值題幹（displayValue）仍由 operation+operands 重算一致
+       - operands 照樣 ≥2 正整數；hint 唔准包含答案 id／數值
    ════════════════════════════════════════════════════════════ */
 
 import { computeAnswer } from '../data/lessons.js'
 import { evalSide, coefficientOf } from './solve.js'
+import { deriveFastestMethod, deriveProperty } from './derive.js'
 
 /** errorTrap 白名單：由 operands=[a,b,c] 推出已知錯誤 */
 const TRAP_OPS = {
@@ -29,12 +37,91 @@ function fail(q, msg) {
 }
 
 /**
+ * choice 題型嘅正解由 operands／結構重推（白名單 angle）。
+ * 回傳 null 表示呢個 angle 未支援 choice 重推 → 直接 fail。
+ */
+function deriveCorrectChoice(q) {
+  switch (q.angle) {
+    case 'fastest':
+      return deriveFastestMethod(q.operands.map(Number))
+    case 'which-property':
+      return deriveProperty(q)
+    default:
+      return null
+  }
+}
+
+/** V7：answerKind === 'choice' 嘅驗證（早啲回傳，跳過數字 V1/V3） */
+function verifyChoice(q) {
+  if (!Array.isArray(q.options) || q.options.length < 2) {
+    fail(q, `V7 choice 選項唔夠（至少 2 個，實際 ${q.options ? q.options.length : '冇'})`)
+  }
+
+  const ids = q.options.map((o) => (o && o.id))
+  if (ids.some((id) => typeof id !== 'string' || id.length === 0)) {
+    fail(q, 'V7 choice 選項缺 id（每個 option 要有 {id, label}）')
+  }
+  if (new Set(ids).size !== ids.length) {
+    fail(q, `V7 choice 選項 id 重複：${ids.join(' | ')}`)
+  }
+
+  if (!Number.isInteger(q.correctIndex) || q.correctIndex < 0 || q.correctIndex >= q.options.length) {
+    fail(q, `V7 choice correctIndex=${q.correctIndex} 越界`)
+  }
+  const pointedId = q.options[q.correctIndex].id
+  if (String(pointedId) !== String(q.answer)) {
+    fail(q, `V7 correctIndex 指中 id=${pointedId} ≠ answer=${q.answer}`)
+  }
+
+  // 正解 id 必須可由 operands／結構重推（唔准手寫）
+  const derived = deriveCorrectChoice(q)
+  if (derived === null) fail(q, `V7 choice angle「${q.angle}」未支援正解重推`)
+  if (String(derived) !== String(q.answer)) {
+    fail(q, `V7 正解重推=${derived} ≠ answer=${q.answer}（operands=[${q.operands}]）`)
+  }
+
+  // 數值題幹仍要由 operation+operands 重算一致
+  if (q.displayValue !== undefined) {
+    const rec = computeAnswer(q.operation, q.operands)
+    if (String(rec) !== String(q.displayValue)) {
+      fail(q, `V7 數值重算=${rec} ≠ displayValue=${q.displayValue}`)
+    }
+  }
+
+  // operands 全部 ≥2 正整數（擋 0/1/小數/負數）
+  for (const o of q.operands || []) {
+    const n = Number(o)
+    if (!Number.isInteger(n) || n < 2) {
+      fail(q, `V3 operand 退化（0/1/小數/負數）：${o}`)
+    }
+  }
+
+  // hint 唔准包含答案 id ／ 數值（洩漏掃描）
+  const leakTokens = [String(q.answer)]
+  if (q.displayValue !== undefined) leakTokens.push(String(q.displayValue))
+  for (const h of [q.hintLevel1, q.hintLevel2]) {
+    if (typeof h !== 'string') continue
+    for (const tok of leakTokens) {
+      if (tok.length > 0 && h.indexOf(tok) !== -1) {
+        fail(q, `V4 hint 洩漏答案「${tok}」：${h}`)
+      }
+    }
+  }
+}
+
+/**
  * 驗證一條題目，任何違反都 throw。通過就回傳 true。
  * @param {object} q Question
  * @returns {true}
  */
 export function verifyQuestion(q) {
   if (!q || typeof q !== 'object') throw new Error('verify: 唔係題目 object')
+
+  // ── V7：choice 型答案（非數字）──────────────────────────
+  if ((q.answerKind || 'number') === 'choice') {
+    verifyChoice(q)
+    return true
+  }
 
   // ── V1：由 operands + operation 重算答案 ──────────────────
   const recomputed = computeAnswer(q.operation, q.operands)

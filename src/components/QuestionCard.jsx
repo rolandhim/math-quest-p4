@@ -195,8 +195,8 @@ export default function QuestionCard({ question, onAnswered, onAcknowledge }) {
       {phase === 'answer' && question.type === 'mc' && (
         <div className="options">
           {(question.options || []).map((opt, i) => (
-            <button key={i} type="button" className="option" onClick={() => submit(String(opt))}>
-              {opt}
+            <button key={i} type="button" className="option" onClick={() => submit(opt.id ?? String(opt))}>
+              {opt.label ?? String(opt)}
             </button>
           ))}
         </div>
@@ -207,7 +207,9 @@ export default function QuestionCard({ question, onAnswered, onAcknowledge }) {
           要一個提示
         </button>
       )}
-      {showHintText && question.hint && <p className="hint-box">提示：{question.hint}</p>}
+      {showHintText && (question.hint ?? question.hintLevel1 ?? '') && (
+        <p className="hint-box">提示：{question.hint ?? question.hintLevel1 ?? ''}</p>
+      )}
 
       {/* 第 1 次錯 */}
       {phase === 'wrong1' && (
@@ -257,7 +259,7 @@ export default function QuestionCard({ question, onAnswered, onAcknowledge }) {
         <div className="tier tier-3">
           <p className="tier-msg">一齊睇睇點計：</p>
           <p className="answer-line">
-            正確答案係 <strong>{question.answer}</strong>
+            正確答案係 <strong>{question.answerDisplay ?? question.answer}</strong>
           </p>
         </div>
       )}

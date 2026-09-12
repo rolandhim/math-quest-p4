@@ -3,10 +3,23 @@
 
 ★ 完全唔用 subagent 寫嘅 solve.js —— 自己由題目文字 parse，用線性求解精確判斷唯一性。
    目的：偵測「自己驗自己」嘅循環論證。
+
+用法：
+    python3 scripts/independent-check-symbol-blank.py [N]   # 預設 5000
+    如果 /tmp/sb_dump.jsonl 唔存在／條數唔啱，會自己叫 node 產生 dump。
 """
 import json
 import re
+import subprocess
+import sys
 from collections import Counter, defaultdict
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+DUMP = "/tmp/sb_dump.jsonl"
+VERDICTS = "/tmp/sb_verdicts_py.json"
+
+N = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 5000
 
 DOMAIN = range(1, 201)          # 正整數，排除 0
 TOK = re.compile(r"\d+|[^\s\d()+*\-/=]+|[()+*\-/=]")
@@ -65,17 +78,6 @@ def exists_free(lhs_t, rhs_t, others, probe, domain=DOMAIN):
     return False
 
 
-def determined_values(sym, syms, lhs_t, rhs_t):
-    """sym 嘅值域（所有令等式有可能成立嘅候選值）"""
-    others = [s for s in syms if s != sym]
-    out = []
-    for v in DOMAIN:
-        if exists_free(lhs_t, rhs_t, others, {**{o: 1 for o in others}, sym: v} if not others else {sym: v}):
-            # 注意：others 為空時 probe 只需要 sym
-            pass
-    return out
-
-
 def determined_values2(sym, syms, lhs_t, rhs_t):
     others = [s for s in syms if s != sym]
     hits = []
@@ -86,8 +88,32 @@ def determined_values2(sym, syms, lhs_t, rhs_t):
     return hits
 
 
+# ── 自己叫 node 產生 dump（如果有需要） ─────────────────
+def ensure_dump():
+    need = True
+    if Path(DUMP).exists():
+        try:
+            with open(DUMP, encoding="utf-8") as fh:
+                cnt = sum(1 for ln in fh if ln.strip())
+            need = cnt < N
+        except Exception:
+            need = True
+    if need:
+        print(f"dump 唔存在／唔夠 {N} 條，叫 node 產生…")
+        r = subprocess.run(
+            ["node", "scripts/check-symbol-blank.mjs", "--dump-only", str(N)],
+            cwd=str(ROOT), capture_output=True, text=True,
+        )
+        print(r.stdout.strip())
+        if r.returncode != 0:
+            print(r.stderr)
+            sys.exit(r.returncode)
+
+
+ensure_dump()
+
 rows = []
-with open("/tmp/sb_dump.jsonl", encoding="utf-8") as fh:
+with open(DUMP, encoding="utf-8") as fh:
     for line in fh:
         line = line.strip()
         if line:
@@ -102,18 +128,23 @@ bad_none = []        # 冇任何符號被唯一確定
 by_level = defaultdict(lambda: {"n": 0, "ok": 0})
 level_syms = defaultdict(set)
 
-for r in rows:
+verdict_fh = open(VERDICTS, "w", encoding="utf-8")
+
+for i, r in enumerate(rows):
+    seed = r.get("seed", i)
     txt, ans, lv = r["q"], str(r["ans"]).strip(), r["level"]
     by_level[lv]["n"] += 1
     if txt.count("=") != 1:
-        bad_pe.append((lv, txt, ans, "'='唔止一個"))
+        bad_pe.append((seed, lv, txt, ans, "'='唔止一個"))
+        verdict_fh.write(json.dumps({"seed": seed, "ok": False, "why": "'='唔止一個"}) + "\n")
         continue
     lhs, rhs = txt.split("=")
     lhs_t, rhs_t = tokenize(lhs), tokenize(rhs)
     syms = sorted({t for t in lhs_t + rhs_t if not t.isdigit() and t not in "()+*-/"})
     level_syms[lv].add("".join(syms))
     if not syms:
-        bad_pe.append((lv, txt, ans, "冇符號"))
+        bad_pe.append((seed, lv, txt, ans, "冇符號"))
+        verdict_fh.write(json.dumps({"seed": seed, "ok": False, "why": "冇符號"}) + "\n")
         continue
 
     det = {}
@@ -123,15 +154,21 @@ for r in rows:
             det[s] = hs[0]
 
     if len(det) == 0:
-        bad_none.append((lv, txt, ans, "冇符號被唯一確定"))
+        bad_none.append((seed, lv, txt, ans, "冇符號被唯一確定"))
+        verdict_fh.write(json.dumps({"seed": seed, "ok": False, "why": "冇符號被唯一確定"}) + "\n")
     elif len(det) > 1:
-        bad_multi.append((lv, txt, ans, f"多過一個被確定: {det}"))
+        bad_multi.append((seed, lv, txt, ans, f"多過一個被確定: {det}"))
+        verdict_fh.write(json.dumps({"seed": seed, "ok": False, "why": f"多過一個被確定: {det}"}) + "\n")
     else:
         only_sym, only_val = next(iter(det.items()))
         if str(only_val) != ans:
-            bad_wrong.append((lv, txt, ans, f"實際唯一解 = {only_val}"))
+            bad_wrong.append((seed, lv, txt, ans, f"實際唯一解 = {only_val}"))
+            verdict_fh.write(json.dumps({"seed": seed, "ok": False, "why": f"實際唯一解 = {only_val}"}) + "\n")
         else:
             by_level[lv]["ok"] += 1
+            verdict_fh.write(json.dumps({"seed": seed, "ok": True}) + "\n")
+
+verdict_fh.close()
 
 print("=== 每級統計 ===")
 for lv in sorted(by_level):
@@ -150,5 +187,11 @@ for name, lst in [("多過一個被確定", bad_multi), ("答案唔係唯一解"
                   ("冇符號被確定", bad_none), ("parse 失敗", bad_pe)]:
     if lst:
         print(f"\n--- {name}（最多示 5 條）---")
-        for lv, txt, ans, why in lst[:5]:
-            print(f"  L{lv}: {txt}  （佢報 {ans}）→ {why}")
+        for seed, lv, txt, ans, why in lst[:5]:
+            print(f"  seed {seed} L{lv}: {txt}  （佢報 {ans}）→ {why}")
+
+if tot_bad:
+    print(f"\n✗ 有 {tot_bad} 條題目唔過 gate")
+    sys.exit(1)
+print("\n✅ 全部通過：每條題目都係「恰恰好一個符號被唯一確定，且值 === answer」")
+sys.exit(0)

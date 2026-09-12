@@ -10,7 +10,10 @@
     "verify": "node scripts/verify.mjs",
     "smoke": "node scripts/smoke.mjs",
     "interact": "node scripts/interact.mjs",
-    "check:abc": "node scripts/check-abc.mjs"
+    "check:abc": "node scripts/check-abc.mjs",
+    "check:schema": "node scripts/verify-schema.mjs",
+    "check:symbol-blank": "node scripts/check-symbol-blank.mjs",
+    "check:ui-compat": "node scripts/check-ui-compat.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

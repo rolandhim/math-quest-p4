@@ -24,6 +24,7 @@
 import { randInt } from '../rng.js'
 import { uniqueTargetValue } from '../solve.js'
 import { verifyQuestion } from '../verify.js'
+import { commonMistakeFrom, safeNote } from './_common.js'
 
 const S = { square: '□', star: '★', heart: '♥', dot: '●', block: '■' }
 const T = { heart: '心形', star: '星星' }
@@ -326,6 +327,40 @@ export function generateLevel(rng, level, seed) {
   const shape = buildShape(level, a, b, c, sym)
   const difficulty = LEVEL_DIFFICULTY[level]
   const id = `sb-L${level}-${String(seed).padStart(5, '0')}`
+  const traps = errorTrapsFor(level, a, b, c, shape.answer)
+  const whole = a * (b + c) // 成條分配等價式嘅量級（兩邊相等）
+  const ansStr = String(shape.answer)
+  let estimateNote
+  switch (level) {
+    case 1:
+    case 3:
+      estimateNote = safeNote(ansStr,
+        () => `左邊兩組乘法加埋係 ${whole}，右邊計出嚟都要係嗰個數`,
+        () => `成條式嘅值係 ${whole}，你個答案要令兩邊相等`,
+      )
+      break
+    case 2:
+    case 5:
+      estimateNote = safeNote(ansStr,
+        () => `左邊拆開嚟乘再加埋係 ${whole}，右邊計出嚟都要係嗰個數`,
+        () => `成條式嘅值係 ${whole}，你個答案要令兩邊相等`,
+      )
+      break
+    case 4:
+      estimateNote = safeNote(ansStr,
+        () => `右邊係 ${b} 同另一個數，左邊括號入面係 ${b} 加你個答案`,
+        () => `左右兩邊嘅值都係 ${whole}（代返符號入去），你個答案要令兩邊相等`,
+      )
+      break
+    case 6:
+      estimateNote = safeNote(ansStr,
+        () => `左邊係 ${b} 同另一個數，右邊括號入面係 ${b} 加你個答案`,
+        () => `左右兩邊嘅值都係 ${whole}（代返符號入去），你個答案要令兩邊相等`,
+      )
+      break
+    default:
+      throw new Error('symbol-blank: 未知級別 ' + level)
+  }
 
   const q = {
     id,
@@ -336,14 +371,23 @@ export function generateLevel(rng, level, seed) {
     difficulty,
     level,
     type: 'type-answer',
+    answerKind: 'number',
     question: shape.question,
     operands: [a, b, c],
     operation: shape.answerOp,
     answer: String(shape.answer),
+    answerDisplay: String(shape.answer),
     acceptedAnswers: [String(shape.answer)],
     options: [],
     correctIndex: -1,
-    errorTraps: errorTrapsFor(level, a, b, c, shape.answer),
+    estimate: {
+      value: whole,
+      operands: [a, b, c],
+      note: estimateNote,
+    },
+    errorTraps: traps,
+    commonMistake: commonMistakeFrom(traps),
+    hint: HINTS[level].h1,
     hintLevel1: HINTS[level].h1,
     hintLevel2: HINTS[level].h2,
     explanationSteps: explanationFor(level, shape, a, b, c),
