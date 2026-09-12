@@ -1,0 +1,911 @@
+/* ════════════════════════════════════════════════════════════
+   math-quest-p4 — design system
+   清爽（綠／白），呼應課本；手機優先；320px 唔會 cut off。
+   小朋友介面：題目 ≥ 24px、撳嘅目標 ≥ 44px、行距鬆。
+   ════════════════════════════════════════════════════════════ */
+
+:root {
+  --green: #2f9e63;
+  --green-dark: #237a4c;
+  --green-light: #e6f5ec;
+  --green-line: #b7e0c8;
+  --ink: #1f2d27;
+  --ink-soft: #5b6f66;
+  --paper: #ffffff;
+  --bg: #f4faf6;
+  --line: #dfe9e3;
+  --amber: #f0a23c;
+  --amber-bg: #fff6e8;
+  --blue: #3d7fd1;
+  --blue-bg: #eef4fd;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --shadow: 0 3px 14px rgba(31, 45, 39, 0.08);
+  --shadow-big: 0 8px 26px rgba(31, 45, 39, 0.14);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+body {
+  font-family: 'Noto Sans TC', 'PingFang HK', 'Segoe UI', 'Microsoft JhengHei', system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.7;
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
+button,
+input,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+.app {
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 0 14px 44px;
+}
+
+.page {
+  padding-top: 14px;
+}
+
+.page-title {
+  font-size: 27px;
+  line-height: 1.35;
+  margin-bottom: 4px;
+}
+
+.page-sub {
+  color: var(--ink-soft);
+  font-size: 15px;
+  margin-bottom: 18px;
+}
+
+.section-title {
+  font-size: 19px;
+  margin: 22px 0 10px;
+}
+
+.empty,
+.facts {
+  color: var(--ink-soft);
+  font-size: 15px;
+  margin: 8px 0;
+}
+
+/* ── Top bar ────────────────────────────────────────── */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0 4px;
+}
+
+.topbar-title {
+  color: var(--ink-soft);
+  font-size: 15px;
+  text-decoration: none;
+  margin-left: auto;
+}
+
+/* ── Buttons（全部 ≥ 44px）──────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 12px 18px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font-size: 17px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.15s ease;
+}
+
+.btn:active {
+  transform: scale(0.985);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn-wide {
+  width: 100%;
+}
+
+.btn-small {
+  min-height: 44px;
+  padding: 9px 14px;
+  font-size: 15px;
+}
+
+.btn-primary {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+
+.btn-primary:hover {
+  background: var(--green-dark);
+}
+
+.btn-soft {
+  background: var(--green-light);
+  color: var(--green-dark);
+  border-color: var(--green-line);
+}
+
+.btn-ghost {
+  background: var(--paper);
+  color: var(--ink-soft);
+  border-color: var(--line);
+}
+
+.btn-quiet {
+  background: transparent;
+  color: var(--ink-soft);
+  border-color: transparent;
+  text-decoration: underline;
+}
+
+.btn-hint {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.btn-hero {
+  width: 100%;
+  min-height: 74px;
+  margin-top: 14px;
+  background: var(--green);
+  color: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-big);
+  text-align: left;
+  justify-content: flex-start;
+  padding: 14px 20px;
+}
+
+.hero-emoji {
+  font-size: 26px;
+}
+
+.hero-text {
+  display: flex;
+  flex-direction: column;
+  font-size: 21px;
+  line-height: 1.3;
+}
+
+.hero-text small {
+  font-size: 14px;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 22px;
+}
+
+/* ── 課文櫃 ─────────────────────────────────────────── */
+
+.shelf-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.shelf-top {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.shelf-name {
+  font-size: 22px;
+}
+
+.shelf-pages {
+  margin-left: auto;
+  color: var(--ink-soft);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.shelf-sub {
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
+.shelf-fact {
+  color: var(--green-dark);
+  font-size: 15px;
+  margin: 8px 0 12px;
+}
+
+.shelf-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── 題目卡 ─────────────────────────────────────────── */
+
+.qcard {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.qcard-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.qcard-badge {
+  background: var(--green-light);
+  color: var(--green-dark);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 3px 12px;
+}
+
+.qcard-book {
+  margin-left: auto;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.qcard-question {
+  font-size: 26px;
+  line-height: 1.55;
+  margin: 6px 0 16px;
+  word-break: break-word;
+}
+
+.answer-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.big-input {
+  width: 100%;
+  min-height: 62px;
+  padding: 12px 16px;
+  border: 2px solid var(--green-line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: 30px;
+  letter-spacing: 2px;
+  text-align: center;
+}
+
+.big-input:focus {
+  outline: none;
+  border-color: var(--green);
+}
+
+.big-input:disabled {
+  background: #f2f4f3;
+  color: #9aa8a2;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.option {
+  min-height: 62px;
+  padding: 12px 16px;
+  border: 2px solid var(--green-line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: 26px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.option:hover {
+  background: var(--green-light);
+}
+
+/* ── 三層提示 ───────────────────────────────────────── */
+
+.tier {
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  margin-top: 14px;
+}
+
+.tier-1,
+.tier-2 {
+  background: var(--amber-bg);
+  border: 1px solid #f3d9ae;
+}
+
+.tier-3 {
+  background: var(--blue-bg);
+  border: 1px solid #c9dcf7;
+}
+
+.tier-ok {
+  background: var(--green-light);
+  border: 1px solid var(--green-line);
+}
+
+.tier-msg {
+  font-size: 19px;
+  line-height: 1.65;
+  margin-bottom: 10px;
+}
+
+.tier-lock {
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
+.tier-note {
+  color: var(--ink-soft);
+  font-size: 15px;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.answer-line {
+  font-size: 22px;
+}
+
+.answer-line strong {
+  font-size: 28px;
+  color: var(--green-dark);
+}
+
+.hint-box {
+  background: var(--green-light);
+  border: 1px solid var(--green-line);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-top: 12px;
+  font-size: 17px;
+}
+
+/* ── 步驟 / 方法 ────────────────────────────────────── */
+
+.steps-box {
+  margin-top: 18px;
+  background: #fbfdfc;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+}
+
+.steps-title,
+.methods-title {
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+
+.steps {
+  padding-left: 22px;
+}
+
+.steps li,
+.method-steps li {
+  margin-bottom: 6px;
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.methods {
+  margin-top: 18px;
+}
+
+.methods-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.method-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  background: #fff;
+}
+
+.method-card.picked {
+  border-color: var(--green);
+  background: var(--green-light);
+}
+
+.method-label {
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+  background: none;
+  border: none;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--green-dark);
+  cursor: pointer;
+}
+
+.method-steps {
+  padding-left: 22px;
+  margin-top: 6px;
+}
+
+.methods-note {
+  color: var(--ink-soft);
+  font-size: 15px;
+  margin-top: 10px;
+}
+
+.common-mistake {
+  color: var(--ink-soft);
+  font-size: 15px;
+  margin-top: 14px;
+}
+
+/* ── 直式格仔 ───────────────────────────────────────── */
+
+.column-grid {
+  display: inline-block;
+  background: #fff;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px 18px;
+  margin: 6px 0 12px;
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.cg-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.cg-times {
+  color: var(--ink-soft);
+}
+
+.cg-line {
+  height: 2px;
+  background: var(--ink);
+  margin: 6px 0;
+}
+
+.cg-boxes {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.cg-box {
+  width: 26px;
+  height: 34px;
+  border: 1px solid var(--green-line);
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* ── 練習庫 ─────────────────────────────────────────── */
+
+.practice-top {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.practice-lesson {
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+.practice-count {
+  margin-left: auto;
+  font-size: 15px;
+  color: var(--green-dark);
+  font-weight: 600;
+}
+
+.dots {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.dot {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.dot-on {
+  background: var(--green);
+}
+
+.dot-done {
+  background: var(--green-line);
+}
+
+.practice-nav {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.practice-nav .btn {
+  flex: 1;
+}
+
+/* ── 做完一組 ───────────────────────────────────────── */
+
+.done-card {
+  background: var(--paper);
+  border: 1px solid var(--green-line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  margin-top: 12px;
+}
+
+.done-line {
+  font-size: 20px;
+}
+
+.done-soft {
+  color: var(--ink-soft);
+  font-size: 17px;
+  margin-top: 10px;
+}
+
+.done-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+/* ── 再試一次 ───────────────────────────────────────── */
+
+.retry-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.retry-item {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.retry-q {
+  font-size: 21px;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.retry-line {
+  font-size: 17px;
+}
+
+.retry-line strong {
+  color: var(--green-dark);
+}
+
+.retry-tag {
+  display: inline-block;
+  margin-top: 8px;
+  background: var(--amber-bg);
+  border-radius: 999px;
+  padding: 2px 12px;
+  font-size: 13px;
+  color: #9a6413;
+}
+
+.retry-steps {
+  margin: 12px 0;
+}
+
+.retry-steps summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--green-dark);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ── 溫習卡 ─────────────────────────────────────────── */
+
+.steps-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.tab {
+  flex: 1;
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.tab-on {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.review-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.review-card-top {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.review-title {
+  font-size: 21px;
+}
+
+.review-pages {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.review-text {
+  font-size: 19px;
+  line-height: 1.7;
+}
+
+.review-example {
+  margin-top: 12px;
+  background: var(--green-light);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-size: 18px;
+}
+
+.fill-prompt {
+  font-size: 26px;
+  margin: 10px 0 14px;
+}
+
+.review-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.review-count {
+  margin: 0 auto;
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+.review-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* ── 家長報告 ───────────────────────────────────────── */
+
+.pin-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 320px;
+}
+
+.pin-input {
+  font-size: 32px;
+  letter-spacing: 10px;
+}
+
+.parent-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.parent-facts {
+  padding-left: 20px;
+  margin: 8px 0;
+  font-size: 16px;
+}
+
+.parent-sub {
+  font-size: 17px;
+  margin: 12px 0 6px;
+}
+
+.parent-watch {
+  padding-left: 20px;
+  font-size: 16px;
+}
+
+.parent-watch li {
+  margin-bottom: 8px;
+}
+
+.parent-note {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.backup-area {
+  width: 100%;
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: vertical;
+}
+
+/* ── 進度碼（§1.5 B）＋ 練習庫「唔限題數」新樣（§1.5 A / C）──── */
+
+.topbar-lock {
+  font-size: 14px;
+  color: var(--ink-soft);
+  padding: 8px 6px;
+}
+
+.practice-leave {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.practice-leave .btn {
+  min-height: 52px;
+}
+
+.practice-note {
+  margin-top: 14px;
+  text-align: center;
+}
+
+.progress-code {
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+
+.progress-code .btn {
+  margin-bottom: 10px;
+  min-height: 50px;
+}
+
+.code-area {
+  display: block;
+  width: 100%;
+  min-height: 84px;
+  margin: 6px 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font-size: 12px;
+  line-height: 1.5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
+  resize: vertical;
+}
+
+.code-import {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.code-msg {
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+}
+
+.code-msg-ok {
+  background: var(--green-light);
+  border: 1px solid var(--green-line);
+  color: var(--green-dark);
+}
+
+.code-msg-bad {
+  background: var(--amber-bg);
+  border: 1px solid var(--amber);
+  color: #8a5a12;
+}
+
+/* ── 320px 保險 ─────────────────────────────────────── */
+
+@media (max-width: 340px) {
+  .qcard-question,
+  .fill-prompt {
+    font-size: 23px;
+  }
+
+  .page-title {
+    font-size: 24px;
+  }
+
+  .shelf-name {
+    font-size: 20px;
+  }
+
+  .tab {
+    font-size: 13px;
+  }
+}
