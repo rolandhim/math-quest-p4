@@ -8,6 +8,7 @@ import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
+import { importMetaGlobPlugin } from './glob-plugin.mjs'
 
 const root = path.resolve(import.meta.dirname, '..')
 const outfile = path.join(root, '.smoke', 'check-abc.bundle.mjs')
@@ -38,7 +39,7 @@ await build({
   outfile,
   logLevel: 'warning',
   packages: 'external',
-  plugins: [emptyLessonShim],
+  plugins: [importMetaGlobPlugin(), emptyLessonShim],
 })
 
 let JSDOM

@@ -2,7 +2,7 @@ import React, { act as reactAct } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../src/App.jsx'
-import { getQuestionsByLesson } from '../src/data/lessons.js'
+import { setTestSeed, openLessonSource } from '../src/lib/practiceBank.js'
 import { EMPTY_LESSON_ID } from './lessons-empty-shim.js'
 import { countDone, isResolvedAttempt } from '../src/lib/progress.js'
 import { encodeCode, decodeCode, todayStr } from '../src/components/ProgressCode.jsx'
@@ -145,8 +145,12 @@ export async function runAbcCheck() {
   })
   c1.remove()
 
-  /* ── (A) + (C) 練習庫：未答完鎖住、答完出 Home、冇分母、走完重洗牌 ── */
-  const qs = getQuestionsByLesson('2')
+  /* ── (A) + (C) 練習庫：未答完鎖住、答完出 Home、冇分母、走完重洗牌 ──
+     Stage D：練習頁讀題庫（唔再係 5 條種子）。用 setTestSeed() 固定抽題順序，
+     由題庫決定性地攞頭 5 題，再逐題答啱。 */
+  setTestSeed(20260912)
+  const src = await openLessonSource('2')
+  const qs = [src.next(), src.next(), src.next(), src.next(), src.next()]
   const c2 = document.createElement('div')
   document.body.appendChild(c2)
   const r2 = await mount(c2, '/lesson/2/practice')
@@ -173,12 +177,13 @@ export async function runAbcCheck() {
     await actAsync(async () => {
       const input = c2.querySelector('input.big-input')
       if (input) {
-        setValue(input, q.acceptedAnswers[0])
+        setValue(input, q.acceptedAnswers[0] || q.answer)
         await sleep(10)
         const submit = findButton('提交', c2)
         if (submit) click(submit)
       } else {
-        const opt = Array.from(c2.querySelectorAll('button.option')).find((b) => b.textContent === q.answer)
+        const label = q.options[q.correctIndex].label
+        const opt = Array.from(c2.querySelectorAll('button.option')).find((b) => b.textContent === label)
         if (opt) click(opt)
       }
     })
@@ -209,7 +214,7 @@ export async function runAbcCheck() {
   }
   const tEnd = textOf(c2)
   push(
-    `(A) 題庫（${qs.length} 題）走完之後仲有題出、冇「做晒」`,
+    `(A) 題庫（${qs.length} 題抽完呢輪）之後仲有題出、冇「做晒」`,
     !tEnd.includes('做晒') && !tEnd.includes('今日做好喇') && /第 \d+ 題/.test(tEnd) && !!c2.querySelector('.qcard'),
     (tEnd.match(/第 \d+ 題/) || ['（搵唔到）'])[0] + ' ｜ 題目=' + (c2.querySelector('.qcard-question') || {}).textContent,
   )

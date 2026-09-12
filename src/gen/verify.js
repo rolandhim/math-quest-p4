@@ -19,7 +19,7 @@
 
 import { computeAnswer } from '../data/lessons.js'
 import { evalSide, coefficientOf } from './solve.js'
-import { deriveFastestMethod, deriveProperty } from './derive.js'
+import { deriveFastestMethod, deriveProperty, deriveFastestOrder, deriveFindErrorStep } from './derive.js'
 
 /** errorTrap 白名單：由 operands=[a,b,c] 推出已知錯誤 */
 const TRAP_OPS = {
@@ -46,6 +46,10 @@ function deriveCorrectChoice(q) {
       return deriveFastestMethod(q.operands.map(Number))
     case 'which-property':
       return deriveProperty(q)
+    case 'fastest-order':
+      return deriveFastestOrder(q.operands.map(Number))
+    case 'find-error-vertical':
+      return deriveFindErrorStep(q)
     default:
       return null
   }
@@ -156,7 +160,7 @@ export function verifyQuestion(q) {
   // ── V3：答案整數 + 合理範圍；operands 全部 ≥2 正整數 ──────
   const ansNum = Number(q.answer)
   if (!Number.isInteger(ansNum)) fail(q, `V3 答案唔係整數：${q.answer}`)
-  if (ansNum < 1 || ansNum > 1000) fail(q, `V3 答案超出合理範圍：${ansNum}`)
+  if (ansNum < 1 || ansNum > 100000) fail(q, `V3 答案超出合理範圍：${ansNum}`)
   for (const o of q.operands) {
     const n = Number(o)
     if (!Number.isInteger(n) || n < 2) {

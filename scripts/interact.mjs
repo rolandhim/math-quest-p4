@@ -8,6 +8,7 @@ import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
+import { importMetaGlobPlugin } from './glob-plugin.mjs'
 
 const root = path.resolve(import.meta.dirname, '..')
 const outfile = path.join(root, '.smoke', 'interact.bundle.mjs')
@@ -22,6 +23,7 @@ await build({
   loader: { '.css': 'empty' },
   outfile,
   logLevel: 'warning',
+  plugins: [importMetaGlobPlugin()],
   packages: 'external',
 })
 

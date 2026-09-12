@@ -22,7 +22,7 @@ import { makeRng, randInt } from '../src/gen/rng.js'
 import { deriveFastestMethod, fastestCosts, deriveProperty } from '../src/gen/derive.js'
 import { isLinkedSeed, LINKED_NUM, LINKED_DEN } from '../src/gen/templates/_common.js'
 
-const TEMPLATE_IDS = TEMPLATES.map((t) => t.id).filter((id) => id !== 'symbol-blank')
+const TEMPLATE_IDS = TEMPLATES.filter((t) => t.lesson === '1' && t.id !== 'symbol-blank').map((t) => t.id)
 const N = 10000
 
 let fail = 0

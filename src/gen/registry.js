@@ -18,6 +18,18 @@ import * as whichProperty from './templates/which-property.js'
 import * as wordToExpression from './templates/word-to-expression.js'
 import * as reverseUnknown from './templates/reverse-unknown.js'
 import * as fillBlank from './templates/fill-blank.js'
+import * as tensMultiply from './templates/tens-multiply.js'
+import * as twoDigitExpand from './templates/two-digit-expand.js'
+import * as twoDigitSwap from './templates/two-digit-swap.js'
+import * as threeByTwo from './templates/three-by-two.js'
+import * as midZero from './templates/mid-zero.js'
+import * as estimateFirst from './templates/estimate-first.js'
+import * as tripleProduct from './templates/triple-product.js'
+import * as fastestOrder from './templates/fastest-order.js'
+import * as findErrorVertical from './templates/find-error-vertical.js'
+import * as reverseL2 from './templates/reverse-l2.js'
+import * as wordProblemL2 from './templates/word-problem-l2.js'
+import * as symbolBlankL2 from './templates/symbol-blank-l2.js'
 
 function wrap(tpl) {
   return {
@@ -53,6 +65,18 @@ export const TEMPLATES = [
   wrap(wordToExpression),
   wrap(reverseUnknown),
   wrap(fillBlank),
+  wrap(tensMultiply),
+  wrap(twoDigitExpand),
+  wrap(twoDigitSwap),
+  wrap(threeByTwo),
+  wrap(midZero),
+  wrap(estimateFirst),
+  wrap(tripleProduct),
+  wrap(fastestOrder),
+  wrap(findErrorVertical),
+  wrap(reverseL2),
+  wrap(wordProblemL2),
+  wrap(symbolBlankL2),
 ]
 
 export function getTemplate(id) {

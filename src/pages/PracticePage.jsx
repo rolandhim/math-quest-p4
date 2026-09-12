@@ -1,81 +1,104 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getLesson, getQuestionsByLesson } from '../data/lessons.js'
+import { getLesson } from '../data/lessons.js'
 import { logAnswer } from '../lib/storage.js'
 import { useNavLock } from '../lib/navlock.jsx'
+import { openLessonSource } from '../lib/practiceBank.js'
 import QuestionCard from '../components/QuestionCard.jsx'
 
 /* ════════════════════════════════════════════════════════════
    ④ 練習庫（/lesson/:id/practice）—— 核心
 
-   簡報 §1.5 (A) 用戶拍板：唔限數量、冇終點、題庫走完重洗牌、佢自己揀停
-     · 顯示「第 N 題」—— N 一路加上去，冇分母、冇「第 N / M 題」
+   題目一律嚟自唯讀題庫（src/data/bank/，1,000 條/課題，Stage D）：
+     · 主路徑：讀題庫 → shuffle 隊列 → 順序抽（避最近 30 id／15 組 operands）
+     · 題庫唔夠／唔存在 → 後備生成器（過 generatorCodeHash 版本檢查先可以用）
      · 題庫走完 → 立即重洗牌再出（❌ 唔准彈「做晒」或死胡同）
-     · 佢自己撳「🏠 今日夠喇 · 返課文櫃」就停 —— 系統唔幫佢決定幾時停
-     · ❌ 冇「再做 5 題」、冇「做完 5 題就今日做好喇」
+
+   簡報 §1.5 (A) 用戶拍板：唔限數量、冇終點、佢自己揀停
+     · 顯示「第 N 題」—— N 一路加上去，冇分母
+     · 佢自己撳「🏠 今日夠喇 · 返課文櫃」就停 —— 系統唔幫佢決定
 
    簡報 §1.5 (C) 做緊唔准走，做完先出 Home 鍵
-     · 未答完當前嗰題 → useNavLock(true)：頂部「← 課文櫃 / ← 課題」收埋
+     · 未答完 → useNavLock(true)：頂部「← 課文櫃 / ← 課題」收埋
      · 答完之後 → 出「下一題」＋「🏠 今日夠喇 · 返課文櫃」
-     · ❌ 唔用 history.pushState / popstate（階段 1 唔攔瀏覽器手勢）
-     · ✅ 第二條防線：未答完走甩 → 唔會當「做過」（見 lib/progress.js）
 
-   ❌ 冇計時器、冇排行榜、冇連勝、唔顯示錯誤分類
+   鍵盤（spec §4）：打字題 Enter = 提交；已提交 → Enter = 下一題
    ════════════════════════════════════════════════════════════ */
-
-/** Fisher–Yates 洗牌。avoidFirstId：唔好一洗完就即刻出返啱啱嗰題 */
-function shuffled(list, avoidFirstId) {
-  const out = list.slice()
-  for (let i = out.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1))
-    const t = out[i]
-    out[i] = out[j]
-    out[j] = t
-  }
-  if (avoidFirstId && out.length > 1 && out[0].id === avoidFirstId) {
-    const k = out.findIndex((q) => q.id !== avoidFirstId)
-    if (k > 0) {
-      const t = out[0]
-      out[0] = out[k]
-      out[k] = t
-    }
-  }
-  return out
-}
 
 export default function PracticePage() {
   const { id } = useParams()
   const lesson = getLesson(id)
-  const all = useMemo(() => (lesson ? getQuestionsByLesson(lesson.id) : []), [lesson])
 
-  const [order, setOrder] = useState(() => all.slice())
-  const [slot, setSlot] = useState(0) // 喺 order 入面嘅位置
+  const [source, setSource] = useState(null) // { kind, total, next, persist }
+  const [question, setQuestion] = useState(null)
   const [served, setServed] = useState(1) // 「第 N 題」—— 一路加上去，洗完牌都唔歸零
   const [result, setResult] = useState(null)
   const [ack, setAck] = useState(false)
   const [retryHints, setRetryHints] = useState(0) // 今次坐低做，有幾題可以再試
+  const [outOfQuestions, setOutOfQuestions] = useState(false) // 後備生成器都冇貨
 
-  // 換課題：由頭開始（第一輪照題庫原次序出，之後先洗牌）
+  // 換課題／首次載入：async 開題庫 → 抽第一題
   useEffect(() => {
-    setOrder(all.slice())
-    setSlot(0)
+    let alive = true
+    setSource(null)
+    setQuestion(null)
     setServed(1)
     setResult(null)
     setAck(false)
     setRetryHints(0)
-  }, [id, all])
+    setOutOfQuestions(false)
+    ;(async () => {
+      const src = await openLessonSource(id)
+      if (!alive) return
+      setSource(src)
+      if (src.kind === 'none') {
+        setQuestion(null)
+        return
+      }
+      const q = src.next()
+      if (q == null) setOutOfQuestions(true)
+      else setQuestion(q)
+      if (src.persist) src.persist()
+    })()
+    return () => {
+      alive = false
+    }
+  }, [id])
 
-  const question = order[slot] || null
   // 「答完」＝答啱，或者已經行到第 3 層（系統出咗正確答案）
   const done = !!result && (result.correct === true || result.isFinalWrong === true)
   // 可以行落去／可以走：第 3 層仲要撳埋「我明喇」
   const canProceed = done && (result.correct === true || ack === true)
 
-  // (C) 未答完 → 收埋頂部返回鍵
-  // ⚠️ 只喺「真係有題目」嘅時候才鎖。如果課題 0 題（題庫空），question 永遠
-  //    null，canProceed 永遠 false —— 照鎖就會死鎖：冇出路、冇返回鍵、
-  //    連標題 Link 都指返自己。（2026-09-12 Checker 🟡）
+  // (C) 未答完 → 收埋頂部返回鍵（只喺真係有題目時先鎖）
   useNavLock(!!question && !canProceed)
+
+  /** 下一題：行到題庫尾就重洗牌，永遠有下一題（冇「做完」） */
+  function goNext() {
+    if (!canProceed || !source) return
+    const nextQ = source.next()
+    if (nextQ == null) {
+      setQuestion(null)
+      setOutOfQuestions(true)
+      return
+    }
+    setQuestion(nextQ)
+    setServed((n) => n + 1)
+    setResult(null)
+    setAck(false)
+    if (source.persist) source.persist()
+  }
+
+  // 打字題 Enter = 提交；已提交 → Enter = 下一題（用 ref 攞最新 goNext）
+  const goNextRef = useRef(goNext)
+  goNextRef.current = goNext
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Enter') goNextRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   if (!lesson) {
     return (
@@ -88,14 +111,47 @@ export default function PracticePage() {
     )
   }
 
-  // 空題庫（0 題）：唔鎖導航，亦唔留一片空白死路 —— 出一條明確嘅出路
-  if (!question) {
+  // 載入中（題庫 lazy import 未返）
+  if (!source) {
+    return (
+      <div className="page">
+        <div className="practice-top">
+          <span className="practice-lesson">{lesson.name}</span>
+        </div>
+        <p className="empty">準備緊題目，好快開始…</p>
+        <p className="facts">{lesson.summary}</p>
+      </div>
+    )
+  }
+
+  // 空題庫（0 題，冇後備）：唔鎖導航，亦唔留一片空白死路 —— 出一條明確嘅出路
+  if (source.kind === 'none') {
     return (
       <div className="page">
         <div className="practice-top">
           <span className="practice-lesson">{lesson.name}</span>
         </div>
         <p className="empty">呢個課題而家仲未有題目。</p>
+        <div className="practice-leave">
+          <Link className="btn btn-primary btn-wide" to="/">
+            🏠 返課文櫃
+          </Link>
+          <Link className="btn btn-quiet btn-small" to={`/lesson/${lesson.id}`}>
+            返課題頁
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  // 後備生成器都連續 fail → 唔出題（唔准爆、唔准一片空白）
+  if (outOfQuestions || !question) {
+    return (
+      <div className="page">
+        <div className="practice-top">
+          <span className="practice-lesson">{lesson.name}</span>
+        </div>
+        <p className="empty">暫時冇題，休息下。</p>
         <div className="practice-leave">
           <Link className="btn btn-primary btn-wide" to="/">
             🏠 返課文櫃
@@ -120,21 +176,6 @@ export default function PracticePage() {
     })
     setResult(res)
     if (!res.correct && res.isFinalWrong) setRetryHints((n) => n + 1)
-  }
-
-  /** 下一題：行到題庫尾就重洗牌，永遠有下一題 */
-  function goNext() {
-    if (!canProceed) return
-    const nextSlot = slot + 1
-    if (nextSlot < order.length) {
-      setSlot(nextSlot)
-    } else {
-      setOrder(shuffled(all, question ? question.id : null))
-      setSlot(0)
-    }
-    setServed((n) => n + 1)
-    setResult(null)
-    setAck(false)
   }
 
   return (

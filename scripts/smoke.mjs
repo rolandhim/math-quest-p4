@@ -10,6 +10,7 @@ import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
+import { importMetaGlobPlugin } from './glob-plugin.mjs'
 
 const root = path.resolve(import.meta.dirname, '..')
 const outfile = path.join(root, '.smoke', 'bundle.mjs')
@@ -24,6 +25,7 @@ await build({
   loader: { '.css': 'empty' },
   outfile,
   logLevel: 'warning',
+  plugins: [importMetaGlobPlugin()],
   // react / react-router 由 Node 自己喺 node_modules 載入，
   // 唔好 bundle 佢哋（react-dom/server 喺包入面會撞到 require('stream')）
   packages: 'external',

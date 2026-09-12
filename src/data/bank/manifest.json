@@ -1,0 +1,15 @@
+{
+  "generatorCodeHash": "f74610c3d5b6553ec090b63ee830183eaf59af9d164eecdb773075172a6c6f24",
+  "lessons": {
+    "1": {
+      "file": "lesson1.0b849c27.json",
+      "count": 1000,
+      "sha256": "0b849c271f55132f03ba6cfb6231ee5ecedc878bf103af1c3fb94a4229eb73a4"
+    },
+    "2": {
+      "file": "lesson2.c39caf20.json",
+      "count": 1000,
+      "sha256": "c39caf20408a96e59c44b82fd88a45071960bb125253dc5f409e7f46db273b87"
+    }
+  }
+}

@@ -39,6 +39,19 @@ const OPERAND_SALTS = {
   fastest: 0xc2b2ae35,
   'find-error': 0x27d4eb2f,
   'word-to-expression': 0x165667b1,
+  // 課題 2（乘法的運算）12 款 —— 每款唔同 salt，避免唔同題型出同一組數字
+  'tens-multiply': 0x3c6ef372,
+  'two-digit-expand': 0x1a2b3c4d,
+  'two-digit-swap': 0x5d4e3f2a,
+  'three-by-two': 0x7f8e9d0c,
+  'mid-zero': 0x9b0a1c2d,
+  'estimate-first': 0xa5b6c7d8,
+  'triple-product': 0xe9f8a7b6,
+  'fastest-order': 0xc5d4e3f2,
+  'find-error-vertical': 0x8a9b0c1d,
+  'reverse-l2': 0x6f7e8d9c,
+  'word-problem-l2': 0x1c2d3e4f,
+  'symbol-blank-l2': 0x5a6b7c8d,
 }
 
 /** 呢個 seed 係咪「刻意同組」seed（可預測規律） */
@@ -185,6 +198,25 @@ const __safeNoteFallback = { n: 0 }
 /** 畀 gate／驗證器讀取 fallback 觸發次數 */
 export function getFallbackCount() {
   return __safeNoteFallback.n
+}
+
+/**
+ * 課 2（乘法的運算）乘法題嘅量級估算：用「a × (b−1)」做一個
+ * 肯定細過答案嘅具體數（a≥2 保證 value ≠ answer），note 含具體數字
+ * 畀小朋友代入自己嘅答案去 check 量級，唔含答案本身。
+ * @param {number} a 因數一
+ * @param {number} b 因數二（答案 = a×b）
+ * @param {string|number} answerStr 答案字串（防洩漏）
+ * @returns {{value:number, operands:number[], note:string}}
+ */
+export function mulHint(a, b, answerStr) {
+  const lo = Math.max(2, b - 1)
+  const value = a * lo
+  const note = safeNote(String(answerStr),
+    () => `${a} × ${lo} = ${value}，答案應該多過 ${value} 少少`,
+    () => `${a} 乘 ${lo} 已經係 ${value}，答案比佢多少少`,
+  )
+  return { value, operands: [a, lo], note }
 }
 
 export function safeNote(answerStr, ...builders) {

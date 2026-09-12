@@ -4,13 +4,23 @@ import { MemoryRouter } from 'react-router-dom'
 import App from '../src/App.jsx'
 import QuestionCard from '../src/components/QuestionCard.jsx'
 import { QUESTIONS } from '../src/data/lessons.js'
+import { setTestSeed, openLessonSource } from '../src/lib/practiceBank.js'
 
 const act = reactAct || ((fn) => fn())
 
 /* ════════════════════════════════════════════════════════════
    interact-entry.jsx —— 真正撳掣嘅測試（jsdom + React）
    由 scripts/interact.mjs 用 esbuild 打包之後跑。
-   測嘅係 spec §5④ 三層遞進同「答完一定出正確步驟＋兩個方法」。
+
+   Stage D 改動：練習頁而家讀題庫（shuffle 隊列），第一題唔再係固定嘅
+   「16×20」。為咗保住原有行為測試（3 秒鎖、三次提示遞進、MC 四個掣、
+   答完先出 Home 鍵），改成：
+     ① 三層遞進 + 3 秒鎖：直接 render QuestionCard 用固定 type-answer 題
+        （N2-bas-001，仍喺 lessons.js 種子度）—— 唔依賴練習頁出邊題。
+     ② 練習頁接駁：用 setTestSeed() 固定抽題順序，由題庫攞第一題，
+        驗「第一題嚟自題庫」＋「答完先出 Home 鍵」。
+     ③ MC 四個掣：直接 render QuestionCard（N2-adv-003）。
+     ④ 舊 path 轉向。
    ════════════════════════════════════════════════════════════ */
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -73,27 +83,37 @@ async function waitFor(predicate, timeoutMs = 8000, stepMs = 250) {
   return predicate()
 }
 
+/** 由題庫攞第一題（決定性）＋ 答啱佢（type-answer / mc 都支援） */
+function answerQuestionCorrectly(scope, q) {
+  if (q.type === 'type-answer') {
+    typeInto(scope.querySelector('input.big-input'), q.acceptedAnswers[0] || q.answer)
+    click(findButton('提交'), '提交')
+  } else {
+    const label = q.options[q.correctIndex].label
+    const opt = Array.from(scope.querySelectorAll('button.option')).find(
+      (b) => (b.textContent || '').trim() === label,
+    )
+    click(opt, 'mc 正確選項 ' + label)
+  }
+}
+
 export async function runInteractive() {
   const results = []
   const container = document.createElement('div')
   document.body.appendChild(container)
   const root = createRoot(container)
 
-  // ── 1) 練習庫：答錯第 1 次（唔准講量級、鎖 3 秒）────
+  // ── 1) 三層遞進 + 3 秒鎖：直接 render 固定 type-answer 題 ──
   const practiceQ = QUESTIONS.find((q) => q.id === 'N2-bas-001') // 16×20 = 320
   await actAsync(async () => {
-    root.render(
-      <MemoryRouter initialEntries={['/lesson/2/practice']}>
-        <App />
-      </MemoryRouter>,
-    )
+    root.render(<QuestionCard question={practiceQ} onAnswered={() => {}} />)
   })
   await actAsync(async () => {
     await sleep(30)
   })
 
   results.push({
-    step: '練習庫第一題顯示出嚟',
+    step: '練習題（type-answer）顯示出嚟',
     got: text().includes(practiceQ.question),
     detail: practiceQ.question,
   })
@@ -207,7 +227,63 @@ export async function runInteractive() {
     detail: '兩個方法都出咗 ✓',
   })
 
-  // ── 4) 答啱嘅路：mc 揀正確選項 ─────────────────────
+  await actAsync(async () => {
+    root.unmount()
+  })
+  container.remove()
+
+  // ── 4) 練習頁接駁：第一題嚟自題庫 + 答完先出 Home 鍵 ──
+  const SEED = 20260912
+  setTestSeed(SEED)
+  const src = await openLessonSource('2')
+  const firstQ = src.next()
+
+  const containerB = document.createElement('div')
+  document.body.appendChild(containerB)
+  const rootB = createRoot(containerB)
+  await actAsync(async () => {
+    rootB.render(
+      <MemoryRouter initialEntries={['/lesson/2/practice']}>
+        <App />
+      </MemoryRouter>,
+    )
+  })
+  await actAsync(async () => {
+    await sleep(60)
+  })
+
+  const tB0 = text()
+  results.push({
+    step: '練習頁第一題嚟自題庫（題目顯示出嚟）',
+    got: !!firstQ && tB0.includes(firstQ.question),
+    detail: firstQ ? firstQ.question.slice(0, 60) : '（題庫攞唔到題）',
+  })
+  results.push({
+    step: '未答完：冇 Home 鍵（答完先出）',
+    got: !tB0.includes('今日夠喇') && !tB0.includes('🏠 今日夠喇'),
+    detail: tB0.slice(0, 80),
+  })
+
+  // 答啱 → Home 鍵出嚟
+  await actAsync(async () => {
+    answerQuestionCorrectly(containerB, firstQ)
+  })
+  await actAsync(async () => {
+    await sleep(60)
+  })
+  const tB1 = text()
+  results.push({
+    step: '答完：出「🏠 今日夠喇 · 返課文櫃」Home 鍵',
+    got: tB1.includes('今日夠喇') && tB1.includes('返課文櫃'),
+    detail: tB1.slice(0, 100),
+  })
+
+  await actAsync(async () => {
+    rootB.unmount()
+  })
+  containerB.remove()
+
+  // ── 5) 答啱嘅路：mc 揀正確選項 ─────────────────────
   const mcQ = QUESTIONS.find((q) => q.id === 'N2-adv-003') // 70×34 → 2380 (mc)
   const container2 = document.createElement('div')
   document.body.appendChild(container2)
@@ -241,7 +317,7 @@ export async function runInteractive() {
     detail: okText.slice(0, 70),
   })
 
-  // ── 5) 舊 path /lesson/:id/mistakes 要轉向去 /retry ────
+  // ── 6) 舊 path /lesson/:id/mistakes 要轉向去 /retry ────
   const container3 = document.createElement('div')
   document.body.appendChild(container3)
   const root3 = createRoot(container3)
@@ -267,10 +343,8 @@ export async function runInteractive() {
   container3.remove()
 
   await actAsync(async () => {
-    root.unmount()
     root2.unmount()
   })
-  container.remove()
   container2.remove()
 
   return results
