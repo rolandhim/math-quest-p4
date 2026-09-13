@@ -2,7 +2,7 @@ import React from 'react'
 import { renderToString } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../src/App.jsx'
-import { getMistakes, logAnswer, clearMistake, recordAttempt, exportAll, importAll } from '../src/lib/storage.js'
+import { getMistakes, logAnswer, clearMistake, recordAttempt, exportAll, importAll, SCHEMA_VERSION } from '../src/lib/storage.js'
 import { QUESTIONS } from '../src/data/lessons.js'
 
 /* ════════════════════════════════════════════════════════════
@@ -72,7 +72,7 @@ export async function runStorageCheck() {
   list = await getMistakes(lessonId)
   steps.push({ step: '第 2 次仲錯 → 喺清單', got: list.length === 1, detail: `清單長度=${list.length}` })
 
-  await recordAttempt({ lessonId, questionId: q2.id, input: '782', correct: true, attemptNo: 3, hintLevel: 2 })
+  await recordAttempt({ lessonId, questionId: q2.id, input: '782', correct: true, attemptNo: 3, hintLevel: 2, needsHint: true })
   list = await getMistakes(lessonId)
   steps.push({
     step: '要用提示先啱 → 留喺清單並標明',
@@ -105,7 +105,7 @@ export async function runStorageCheck() {
   const impBad = await importAll('{ 唔係 JSON')
   steps.push({
     step: 'exportAll / importAll',
-    got: parsed.schemaVersion === 1 && parsed.data && imp.ok === true && impBad.ok === false,
+    got: parsed.schemaVersion === SCHEMA_VERSION && parsed.data && imp.ok === true && impBad.ok === false,
     detail: `匯出 keys=${Object.keys(parsed.data).length}, importAll ok=${imp.ok}, 壞 JSON ok=${impBad.ok}(${impBad.reason})`,
   })
 

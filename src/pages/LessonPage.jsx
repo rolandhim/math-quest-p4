@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { getLesson, getQuestionsByLesson } from '../data/lessons.js'
+import { getLesson } from '../data/lessons.js'
 import { getAttempts, getMistakes, getReviewState, subscribe } from '../lib/storage.js'
 import { countDone } from '../lib/progress.js'
 
@@ -52,8 +52,6 @@ export default function LessonPage() {
     )
   }
 
-  const total = getQuestionsByLesson(lesson.id).length
-
   return (
     <div className="page">
       <h1 className="page-title">{lesson.name}</h1>
@@ -78,7 +76,7 @@ export default function LessonPage() {
       </button>
 
       <p className="facts">
-        {lesson.summary}（課本 p{lesson.pages}；呢個課題有 {total} 題）
+        {lesson.summary}（課本 p{lesson.pages}）
       </p>
       <p className="facts">做過 {facts.done} 題 · 睇過 {facts.review} 張重點卡</p>
 

@@ -22,7 +22,7 @@ import { classify } from './classify.js'
 const PREFIX = 'mq4:'
 
 /** 資料格式版本（每條 record 都會帶） */
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 /** 家長頁預設 PIN */
 export const DEFAULT_PIN = '1234'
@@ -364,6 +364,50 @@ export async function saveProfile(p) {
   }
 }
 
+/* ── 題目快照（snapshot，方案 C：A 為主 + B 舊資料 fallback）── */
+
+/** 快照保留欄位：夠 MistakesPage render + QuestionCard 重做（唔存題庫檔名／hash） */
+const SNAPSHOT_FIELDS = [
+  'id', 'question', 'answer', 'answerDisplay', 'acceptedAnswers',
+  'explanationSteps', 'type', 'options', 'difficulty', 'hint',
+  'hintLevel1', 'hintLevel2', 'estimate', 'methods', 'commonMistake',
+  'operands', 'operation', 'source', 'topic', 'difficultyTags',
+]
+
+/** 單條 attempt 快照 JSON 上限（UTF-16 code units，唔係 bytes；超過就唔存快照，改由 resolver 反查） */
+export const SNAPSHOT_MAX_CHARS = 10 * 1024
+
+/**
+ * 由題目 object 抽一個自足快照。紀錄一旦寫入就自足，題庫日後點改都讀得返。
+ * 唔存題庫檔名／hash（render 唔准靠佢）。
+ */
+export function buildSnapshot(question) {
+  if (!question || typeof question !== 'object') return null
+  const snap = {}
+  for (const f of SNAPSHOT_FIELDS) {
+    if (question[f] !== undefined) snap[f] = question[f]
+  }
+  if (!Array.isArray(snap.explanationSteps)) snap.explanationSteps = []
+  return snap
+}
+
+/** 快照太大而跳過嘅計數器（診斷用） */
+export function getSnapshotSkippedCount() {
+  try {
+    return Number(readJSON('snapshotSkippedCount', 0)) || 0
+  } catch (err) {
+    return 0
+  }
+}
+
+function bumpSnapshotSkippedCount() {
+  try {
+    writeJSON('snapshotSkippedCount', getSnapshotSkippedCount() + 1)
+  } catch (err) {
+    /* 唔理 */
+  }
+}
+
 /* ── Attempts（每次作答紀錄）──────────────────────────── */
 
 /**
@@ -380,8 +424,14 @@ export async function recordAttempt(a) {
       correct: !!(a && a.correct),
       attemptNo: Number(a && a.attemptNo) || 1,
       hintLevel: Math.max(0, Math.min(3, Number(a && a.hintLevel) || 0)),
+      needsHint: !!(a && a.needsHint),
       ts: (a && a.ts) || new Date().toISOString(),
       errorSubcodes: Array.isArray(a && a.errorSubcodes) ? a.errorSubcodes.slice() : [],
+    }
+    if (a && a.snapshot && typeof a.snapshot === 'object') {
+      attempt.snapshot = a.snapshot
+    } else if (a && a.snapshotSkipped) {
+      attempt.snapshotSkipped = true
     }
     const key = 'attempts:' + attempt.lessonId
     const list = readJSON(key, [])
@@ -404,7 +454,7 @@ export async function recordAttempt(a) {
  * 一次作答：寫入紀錄，並順手做 classify。
  * 分類只入 storage，小朋友介面完全唔顯示。
  */
-export async function logAnswer({ lessonId, question, input, correct, attemptNo, hintLevel }) {
+export async function logAnswer({ lessonId, question, input, correct, attemptNo, hintLevel, needsHint }) {
   let subcodes = []
   try {
     if (!correct && question) {
@@ -413,15 +463,31 @@ export async function logAnswer({ lessonId, question, input, correct, attemptNo,
   } catch (err) {
     subcodes = []
   }
-  return recordAttempt({
+
+  // 題目快照（A 方案）：寫入即自足；太大就只存 id，由 resolver 反查（B 方案）
+  let snapshot = null
+  let snapshotSkipped = false
+  if (question) {
+    const snap = buildSnapshot(question)
+    const size = JSON.stringify(snap).length
+    if (size > SNAPSHOT_MAX_CHARS) snapshotSkipped = true
+    else snapshot = snap
+  }
+
+  const attempt = await recordAttempt({
     lessonId: lessonId || (question && question.lesson),
     questionId: question && question.id,
     input,
     correct,
     attemptNo,
     hintLevel,
+    needsHint,
     errorSubcodes: subcodes,
+    snapshot,
+    snapshotSkipped,
   })
+  if (snapshotSkipped) bumpSnapshotSkippedCount()
+  return attempt
 }
 
 export async function getAttempts(lessonId) {
@@ -436,8 +502,9 @@ export async function getAttempts(lessonId) {
 /**
  * 「再試一次」清單（唔叫錯題簿）
  *   · 最後一次係錯 → 入清單
- *   · 最後一次答啱但係要第 3 層提示先得 → 都入清單，標明 needsHint
- *   · 之後重做答啱（唔使第 3 層提示）→ 即刻移走
+ *   · 最後一次答啱但係要用提示先啱（needsHint）→ 入清單，標明 needsHint
+ *   · 行到第 3 層（出答案）→ 入清單
+ *   · 之後重做答啱（唔使提示）→ 即刻移走
  * 最多 20 題，新到舊。
  */
 export async function getMistakes(lessonId) {
@@ -456,7 +523,7 @@ export async function getMistakes(lessonId) {
       .filter(
         (a) =>
           !clearedSet.has(a.questionId) &&
-          (!a.correct || (Number(a.hintLevel) >= 2 && Number(a.attemptNo) >= 3) || Number(a.hintLevel) >= 3),
+          (!a.correct || a.needsHint === true || Number(a.hintLevel) >= 3),
       )
       .map((a) => ({
         questionId: a.questionId,
@@ -464,9 +531,10 @@ export async function getMistakes(lessonId) {
         input: a.input,
         correct: a.correct,
         hintLevel: Number(a.hintLevel) || 0,
-        needsHint: !!a.correct,
+        needsHint: !!(a.correct && a.needsHint),
         attemptNo: a.attemptNo,
         errorSubcodes: a.errorSubcodes || [],
+        snapshot: a.snapshot || null,
         ts: a.ts,
       }))
       .sort((x, y) => String(y.ts).localeCompare(String(x.ts)))
@@ -498,6 +566,33 @@ export async function clearMistake(qid) {
     set.add(id)
     writeJSON('cleared', Array.from(set))
     return true
+  } catch (err) {
+    return false
+  }
+}
+
+/* ── 舊 record 快照 backfill（lazy migration）───────────── */
+
+/**
+ * 舊 record（冇 snapshot）由 resolver 查到題庫 → 即時寫返快照。
+ * 只回寫「同一 questionId 而且仲未有 snapshot」嘅 record；改到就回傳 true。
+ */
+export async function backfillAttemptSnapshot(lessonId, questionId, snapshot) {
+  try {
+    if (!snapshot || typeof snapshot !== 'object') return false
+    const key = 'attempts:' + String(lessonId)
+    const list = readJSON(key, [])
+    if (!Array.isArray(list)) return false
+    let changed = false
+    for (const a of list) {
+      if (a && String(a.questionId) === String(questionId) && !(a.snapshot && a.snapshot.question)) {
+        a.snapshot = snapshot
+        if (a.schemaVersion === undefined) a.schemaVersion = SCHEMA_VERSION
+        changed = true
+      }
+    }
+    if (changed) writeJSON(key, list)
+    return changed
   } catch (err) {
     return false
   }

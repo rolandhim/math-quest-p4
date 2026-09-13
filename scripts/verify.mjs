@@ -169,7 +169,7 @@ console.log('    hashPinPure("1234") =', pure)
 console.log('    hashPin("1234")     =', subtleHash)
 check('純 JS 同 Web Crypto 兩條路結果一致', subtleHash, pure)
 check('PIN 唔會以明文出現喺 hash 入面', pure.includes('1234'), false)
-check('SCHEMA_VERSION', SCHEMA_VERSION, 1)
+check('SCHEMA_VERSION', SCHEMA_VERSION, 2)
 
 // 跨 tab 同步 / 持久化 API 存在
 console.log('    storage 匯出 API:', ['exportAll', 'importAll', 'subscribe', 'requestPersistence'].join(', '))

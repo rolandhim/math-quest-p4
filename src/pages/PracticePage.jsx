@@ -173,6 +173,7 @@ export default function PracticePage() {
       correct: res.correct,
       attemptNo: res.attemptNo,
       hintLevel: res.hintLevel,
+      needsHint: !!res.needsHint,
     })
     setResult(res)
     if (!res.correct && res.isFinalWrong) setRetryHints((n) => n + 1)

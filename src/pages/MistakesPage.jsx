@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getLesson, getQuestionById } from '../data/lessons.js'
+import { getLesson } from '../data/lessons.js'
 import { clearMistake, getMistakes, logAnswer, subscribe } from '../lib/storage.js'
+import { resolveQuestionForAttempt } from '../lib/resolveQuestion.js'
 import QuestionCard from '../components/QuestionCard.jsx'
 
 /* ════════════════════════════════════════════════════════════
@@ -13,12 +14,18 @@ import QuestionCard from '../components/QuestionCard.jsx'
       · 重做答啱就即刻移走（清單越做越短）
    · 每題顯示：題目、佢寫嘅答案、正確答案、正確步驟
    · ❌ 唔顯示錯誤次數、唔顯示分類、唔顯示撞咗幾次
+
+   題目渲染（方案 C）：唔再靠 getQuestionById（只搵到舊 seed 44 條），
+   改由 resolveQuestionForAttempt() 逐條反查：
+      snapshot 直接用 → 冇就反查題庫（查到即 backfill）→ 查唔到就
+      明確顯示「已經更新」＋移除，唔准靜靜唔 render（D1 主 bug）。
    ════════════════════════════════════════════════════════════ */
 
 export default function MistakesPage() {
   const { id } = useParams()
   const lesson = getLesson(id)
   const [items, setItems] = useState(null)
+  const [resolved, setResolved] = useState({}) // questionId → { status, question }
   const [activeId, setActiveId] = useState(null)
   const [lastResult, setLastResult] = useState(null)
 
@@ -27,7 +34,11 @@ export default function MistakesPage() {
     async function load() {
       if (!lesson) return
       const list = await getMistakes(lesson.id)
-      if (alive) setItems(list)
+      if (!alive) return
+      const resolvedMap = await resolveAll(list)
+      if (!alive) return
+      setItems(list)
+      setResolved(resolvedMap)
     }
     load()
     const unsubscribe = subscribe(load)
@@ -36,6 +47,15 @@ export default function MistakesPage() {
       unsubscribe()
     }
   }, [lesson])
+
+  /** 逐條反查題目（snapshot 直接用；冇就 lazy 查題庫／seed，查到即 backfill） */
+  async function resolveAll(list) {
+    const map = {}
+    for (const it of list) {
+      map[it.questionId] = await resolveQuestionForAttempt(it)
+    }
+    return map
+  }
 
   if (!lesson) {
     return (
@@ -48,7 +68,9 @@ export default function MistakesPage() {
     )
   }
 
-  const activeQ = activeId ? getQuestionById(activeId) : null
+  const activeQ = activeId && resolved[activeId] && resolved[activeId].question
+    ? resolved[activeId].question
+    : null
 
   async function handleAnswered(res) {
     if (!activeQ) return
@@ -59,16 +81,27 @@ export default function MistakesPage() {
       correct: res.correct,
       attemptNo: res.attemptNo,
       hintLevel: res.hintLevel,
+      needsHint: !!res.needsHint,
     })
     setLastResult(res)
     // 重做答啱就即刻移走
     if (res.correct) {
-      await clearMistake(activeQ.id)
+      await clearMistake(activeId)
       setActiveId(null)
       setLastResult(null)
       const list = await getMistakes(lesson.id)
+      const resolvedMap = await resolveAll(list)
       setItems(list)
+      setResolved(resolvedMap)
     }
+  }
+
+  async function removeOne(qid) {
+    await clearMistake(qid)
+    const list = await getMistakes(lesson.id)
+    const resolvedMap = await resolveAll(list)
+    setItems(list)
+    setResolved(resolvedMap)
   }
 
   async function removeAll() {
@@ -78,7 +111,9 @@ export default function MistakesPage() {
       await clearMistake(it.questionId)
     }
     const list = await getMistakes(lesson.id)
+    const resolvedMap = await resolveAll(list)
     setItems(list)
+    setResolved(resolvedMap)
   }
 
   /* ── 即場重做一題 ─────────────────────────── */
@@ -88,7 +123,7 @@ export default function MistakesPage() {
         <h1 className="page-title">🔄 再試一次</h1>
         <p className="page-sub">{lesson.name}</p>
         <QuestionCard
-          key={activeQ.id}
+          key={activeId}
           question={activeQ}
           onAnswered={handleAnswered}
           onAcknowledge={() => {}}
@@ -132,8 +167,23 @@ export default function MistakesPage() {
       {items && items.length > 0 && (
         <ul className="retry-list">
           {items.map((it) => {
-            const q = getQuestionById(it.questionId)
-            if (!q) return null
+            const r = resolved[it.questionId]
+            // 查唔到 → 明確顯示（唔准靜靜唔 render），並提供移除
+            if (!r || r.status === 'missing') {
+              return (
+                <li key={it.questionId} className="retry-item">
+                  <p className="retry-q">呢條題目已經更新，顯示唔到原文。</p>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-small"
+                    onClick={() => removeOne(it.questionId)}
+                  >
+                    移除呢條
+                  </button>
+                </li>
+              )
+            }
+            const q = r.question
             return (
               <li key={it.questionId} className="retry-item">
                 <p className="retry-q">{q.question}</p>
@@ -141,7 +191,7 @@ export default function MistakesPage() {
                   你寫咗：<strong>{it.input || '（空白）'}</strong>
                 </p>
                 <p className="retry-line">
-                  正確答案：<strong>{q.answer}</strong>
+                  正確答案：<strong>{q.answerDisplay ?? q.answer}</strong>
                 </p>
                 {it.needsHint && <p className="retry-tag">要用提示先啱</p>}
                 <details className="retry-steps">

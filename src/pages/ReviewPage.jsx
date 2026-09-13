@@ -92,6 +92,7 @@ export default function ReviewPage() {
       correct: res.correct,
       attemptNo: res.attemptNo,
       hintLevel: res.hintLevel,
+      needsHint: !!res.needsHint,
     })
     setQuizResults((prev) => ({ ...prev, [q.id]: res }))
   }

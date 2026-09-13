@@ -17,6 +17,7 @@
     "check:ui-compat": "node scripts/check-ui-compat.mjs",
     "check:bank": "node scripts/check-bank.mjs",
     "check:practice": "node scripts/check-practice.mjs",
+    "check:retry": "node scripts/check-retry.mjs",
     "build:bank": "node scripts/build-bank.mjs",
     "gen:version": "node scripts/write-generator-version.mjs",
     "prebuild": "node scripts/check-bank.mjs && node scripts/write-generator-version.mjs"
